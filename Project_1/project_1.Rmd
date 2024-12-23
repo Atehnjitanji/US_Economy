@@ -1,0 +1,109 @@
+---
+title: "Project_1"
+output:
+  word_document: default
+  pdf_document: default
+date: "2024-06-16"
+---
+
+# Library setup
+
+```{r first}
+library(tseries)
+library(dplyr)
+library(leaps)
+```
+
+# data inspection
+
+```{r data}
+fl <- read.csv('Data_files\\Business_data.csv')
+head(fl)
+```
+
+# Converting data to time series
+
+```{r TimeSeries}
+N_employees <- ts(fl$N_employees,start=c(2006,1), end=c(2024,1), frequency=4)
+N_applications <- ts(fl$N_applications,start=c(2006,1), end=c(2024,1), frequency=4)
+Inflation <- ts(fl$Inflation,start=c(2006,1), end=c(2024,1), frequency=4)
+BUSINV <- ts(fl$BUSINV,start=c(2006,1), end=c(2024,1), frequency=4)
+Loan_tight <- ts(fl$Loan_tight,start=c(2006,1), end=c(2024,1), frequency=4)
+Loan_demand <- ts(fl$Loan_Demand,start=c(2006,1), end=c(2024,1), frequency=4)
+Profit <- ts(fl$Profit,start=c(2006,1), end=c(2024,1), frequency=4)
+Sales <- ts(fl$Sales,start=c(2006,1), end=c(2024,1), frequency=4)
+```
+
+# Stationary Test(ADF)
+
+```{r StatTest}
+adf.test(N_employees)
+adf.test(N_applications)
+adf.test(Inflation)
+adf.test(BUSINV)
+adf.test(Loan_tight)
+adf.test(Loan_demand)
+adf.test(Profit)
+adf.test(Sales)
+```
+
+All columns of data are non-stationary, therefore we need to differentiate our data.
+
+# Data Differentiation
+## Making it stationary
+
+```{r Diff}
+diff_emp <- N_employees %>% diff()%>% diff()
+diff_app <- N_applications %>% diff()%>% diff()
+diff_Infl <- Inflation %>% diff()
+diff_BUSI <- BUSINV %>% diff()
+diff_Ltig <- Loan_tight %>% diff()
+diff_Ldem <- Loan_demand %>% diff()
+diff_Profit <- Profit %>% diff()%>% diff()
+diff_Sales <- Sales %>% diff()%>% diff()
+
+adf.test(diff_emp)
+adf.test(diff_app)
+adf.test(diff_Infl)
+adf.test(diff_BUSI)
+adf.test(diff_Ltig)
+adf.test(diff_Ldem)
+adf.test(diff_Profit)
+adf.test(diff_Sales)
+```
+
+# Raw Data Model
+
+```{r MainModel}
+diff_Infl <- diff_Infl[-1]
+diff_BUSI <- diff_BUSI[-1]
+diff_Ltig <- diff_Ltig[-1]
+diff_Ldem <- diff_Ldem[-1]
+
+diff_data <- data.frame(diff_emp,diff_app,diff_Infl,diff_BUSI,diff_Ltig,diff_Ldem,diff_Sales)
+lm_diff <- lm(diff_Profit ~ . , data = diff_data)
+summary(lm_diff)
+```
+
+# Finding Best Model
+
+```{r best_model}
+results <- leaps(diff_data,diff_Profit,int=TRUE,method=c("Cp", "adjr2", "r2"),nbest=5,names=NULL, df=NROW(diff_data))
+results
+colnames(diff_data)
+```
+
+# Best model
+
+```{r model_comp}
+lm_1 <- lm(diff_Profit ~ diff_data$diff_emp+diff_data$diff_app+diff_data$diff_Ltig+diff_data$diff_Sales)
+summary(lm_1)
+```
+
+# Model Analyses
+
+```{r model_test2}
+plot(lm_1)
+```
+
+We have some problem points which are point 58, 64 and 47. Point 58 was derived from the 2020 pandemic, therefore this point is an outlier and shouldn't be considered in our model.
